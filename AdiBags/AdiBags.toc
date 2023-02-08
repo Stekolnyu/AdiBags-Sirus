@@ -1,62 +1,39 @@
-# AdiBags - Adirelle's bag addon.
-# Copyright 2010-2021 Adirelle (adirelle@gmail.com)
-# All rights reserved.
-#
-# This file is part of AdiBags.
-#
-# AdiBags is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# AdiBags is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with AdiBags.  If not, see <http://www.gnu.org/licenses/>.
-
 ## Interface: 30300
-
 ## Title: AdiBags
-## Notes: Adirelle's bag addon.
-## Author: Adirelle - Backported by Empress and Kader
-## Version: v1.9.26-bcc
+## Notes: Modified for WoTLK
+## Author: Adirelle
 ## SavedVariables: AdiBagsDB
-## X-Date: 2021-09-15T20:01:06Z
-## X-License: GPL v3
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibSharedMedia-3.0, Scrap, BrainDead, SyLevel
-#@alpha@
-# ## OptionalDeps: AdiDebug, BugSack, Swatter
-#@end-alpha@
+## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibBabble-Inventory-3.0, AdiDebug, Scrap, BrainDead, ProfessionsVault
 
 #@no-lib-strip@
 libs\LibStub\LibStub.lua
 libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
 libs\AceAddon-3.0\AceAddon-3.0.xml
 libs\AceDB-3.0\AceDB-3.0.xml
+libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
+libs\AceEvent-3.0\AceEvent-3.0.xml
+libs\AceTimer-3.0\AceTimer-3.0.xml
 libs\AceHook-3.0\AceHook-3.0.xml
+libs\AceBucket-3.0\AceBucket-3.0.xml
+libs\AceGUI-3.0\AceGUI-3.0.xml
 libs\AceConsole-3.0\AceConsole-3.0.xml
-libs\LibSharedMedia-3.0\lib.xml
-libs\LibCompat-1.0\lib.xml
-libs\LibItemSearch-1.2\LibItemSearch-1.2.xml
+libs\AceConfig-3.0\AceConfig-3.0.xml
+libs\LibBabble-Inventory-3.0\lib.xml
+libs\LibItemUpgradeInfo-1.0\LibItemUpgradeInfo-1.0.xml
 #@end-no-lib-strip@
 
 libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
+# local
 Localization.lua
-core\EventHandlers.lua
-core\Constants.lua
+
+# core
 core\Utility.lua
-core\Fonts.lua
+core\DefaultFilters.lua
 core\Core.lua
-core\Hooks.lua
-core\Bags.lua
-core\Filters.lua
-core\Layout.lua
 core\OO.lua
 
+# widgets
 widgets\LayeredRegion.lua
 widgets\ContainerFrame.lua
 widgets\BagSlots.lua
@@ -64,19 +41,20 @@ widgets\ItemButton.lua
 widgets\Section.lua
 widgets\AnchorWidget.lua
 
+# filters
 modules\DataSource.lua
+modules\SearchHighlight.lua
 modules\NewItemTracking.lua
 modules\MoneyFrame.lua
 modules\FilterOverride.lua
-modules\ItemLevel.lua
 modules\Junk.lua
+
+# plagins
 modules\TooltipInfo.lua
 modules\SectionVisibilityDropdown.lua
-modules\BankSwitcher.lua
-modules\ChangeHighlight.lua
+modules\ItemLevel.lua
 
-core\DefaultFilters.lua
+# options
+config\Options.lua
+config\Config-ItemList.lua
 
-#@debug@
-# Version: DEV
-#@end-debug@

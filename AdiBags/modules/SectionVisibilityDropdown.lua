@@ -1,22 +1,7 @@
 --[[
 AdiBags - Adirelle's bag addon.
-Copyright 2010-2021 Adirelle (adirelle@gmail.com)
+Copyright 2010-2011 Adirelle (adirelle@tagada-team.net)
 All rights reserved.
-
-This file is part of AdiBags.
-
-AdiBags is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-AdiBags is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with AdiBags.  If not, see <http://www.gnu.org/licenses/>.
 --]]
 
 local addonName, addon = ...
@@ -36,9 +21,7 @@ local UIDropDownMenu_AddButton = _G.UIDropDownMenu_AddButton
 local wipe = _G.wipe
 --GLOBALS>
 
-local SplitSectionKey = addon.SplitSectionKey
-
-local mod = addon:NewModule('SectionVisibilityDropdown', 'ABEvent-1.0')
+local mod = addon:NewModule('SectionVisibilityDropdown', 'AceEvent-3.0')
 mod.uiName = L['Section visibility button']
 mod.uiDesc = L['Add a dropdown menu to bags that allow to hide the sections.']
 
@@ -61,11 +44,17 @@ end
 
 function mod:OnBagFrameCreated(bag)
 	local container = bag:GetFrame()
-	local button = container:CreateModuleButton("V", 5, Button_OnClick, {
+	local button = CreateFrame("Button", nil, container, "UIPanelButtonTemplate")
+	button:SetText("V")
+	button:SetWidth(20)
+	button:SetHeight(20)
+	button:SetScript("OnClick", Button_OnClick)
+	button.container = container
+	container:AddHeaderWidget(button, 5)
+	addon.SetupTooltip(button, {
 		L["Section visibility"],
 		L["Click to select which sections should be shown or hidden. Section visibility is common to all bags."]
-	})
-	button.container = container
+	}, "ANCHOR_TOPLEFT", 0, 8)
 	buttons[button] = true
 end
 
@@ -80,6 +69,7 @@ local function CollapseDropDownMenu_ToggleSection(button, key, container)
 end
 
 local info = {}
+local entries = {}
 local function CollapseDropDownMenu_Initialize(self, level)
 	if not level then return end
 
@@ -90,11 +80,42 @@ local function CollapseDropDownMenu_Initialize(self, level)
 	info.notCheckable = true
 	UIDropDownMenu_AddButton(info, level)
 
+	-- Now list all potential sections
+	wipe(entries)
+	for key, collapsed in pairs(addon.db.char.collapsedSections) do
+		if collapsed and not entries[key] then
+			entries[key] = true
+			tinsert(entries, key)
+		end
+	end
+	for key in pairs(self.container.sections) do
+		if not entries[key] then
+			entries[key] = true
+			tinsert(entries, key)
+		end
+	end
+	tsort(entries)
+
 	-- Add an entry for each section
 	local currentCat = nil
 	wipe(info)
-	for key, section, name, category, title, visible in self.container:IterateSections(true) do
-		info.text = title
+	for i, key in ipairs(entries) do
+		local name, category = addon:SplitSectionKey(key)
+		if category ~= currentCat then
+			wipe(info)
+			info.text = category
+			info.disabled = true
+			info.notCheckable = true
+			UIDropDownMenu_AddButton(info, level)
+			currentCat = category
+			wipe(info)
+		end
+		local section = self.container.sections[key]
+		if section then
+			info.text = format("%s (%d)", name, section.count)
+		else
+			info.text = name
+		end
 		info.isNotRadio = true
 		info.tooltipTitle = format(L['Show %s'], name)
 		info.tooltipText = L['Check this to show this section. Uncheck to hide it.']

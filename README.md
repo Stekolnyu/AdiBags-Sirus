@@ -1,7 +1,6 @@
-# AdiBags-WotLK
-AdiBags for Wrath of the Lich King 3.3.5
+# AdiBags-Sirus
+AdiBags for Wrath of the Lich King 3.3.5, edited for Sirus.su
 
-Modules BoE and Outfitter Filters:
-https://github.com/iEmpress/AdiBags-WotLK-Modules
+AdiBags отображает содержимое ваших сумок в одном представлении, распределенном по нескольким разделам с помощью интеллектуальных фильтров.
 
-![image](https://user-images.githubusercontent.com/82000605/137448730-fc6cd1ae-fc01-4464-9346-24eee4d29a7f.png)
+![image](https://cdn.discordapp.com/attachments/1072145366855712778/1072877621395861674/image.png)

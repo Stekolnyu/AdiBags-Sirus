@@ -1,27 +1,5 @@
---[[
-AdiBags - Adirelle's bag addon.
-Copyright 2010-2021 Adirelle (adirelle@gmail.com)
-All rights reserved.
-
-This file is part of AdiBags.
-
-AdiBags is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-AdiBags is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with AdiBags.  If not, see <http://www.gnu.org/licenses/>.
---]]
-
 local addonName, addon = ...
 
---<GLOBALS
 local _G = _G
 local BankButtonIDToInvSlotID = _G.BankButtonIDToInvSlotID
 local BANK_CONTAINER = _G.BANK_CONTAINER
@@ -30,56 +8,37 @@ local format = _G.format
 local GetContainerItemID = _G.GetContainerItemID
 local GetContainerItemInfo = _G.GetContainerItemInfo
 local GetContainerItemLink = _G.GetContainerItemLink
+local GetContainerItemQuestInfo = _G.GetContainerItemQuestInfo
 local GetContainerNumFreeSlots = _G.GetContainerNumFreeSlots
 local GetItemInfo = _G.GetItemInfo
 local GetItemQualityColor = _G.GetItemQualityColor
-local hooksecurefunc = _G.hooksecurefunc
-local IsContainerItemAnUpgrade = _G.IsContainerItemAnUpgrade
 local IsInventoryItemLocked = _G.IsInventoryItemLocked
-local ITEM_QUALITY_COMMON = ITEM_QUALITY1_DESC
-local ITEM_QUALITY_POOR = ITEM_QUALITY0_DESC
+local ITEM_QUALITY_POOR = _G.ITEM_QUALITY_POOR
+local ITEM_QUALITY_UNCOMMON = _G.ITEM_QUALITY_UNCOMMON
 local KEYRING_CONTAINER = _G.KEYRING_CONTAINER
 local next = _G.next
 local pairs = _G.pairs
 local select = _G.select
 local SetItemButtonDesaturated = _G.SetItemButtonDesaturated
 local StackSplitFrame = _G.StackSplitFrame
+local TEXTURE_ITEM_QUEST_BANG = _G.TEXTURE_ITEM_QUEST_BANG
+local TEXTURE_ITEM_QUEST_BORDER = _G.TEXTURE_ITEM_QUEST_BORDER
 local tostring = _G.tostring
 local wipe = _G.wipe
---GLOBALS>
 
 local GetSlotId = addon.GetSlotId
 local GetBagSlotFromId = addon.GetBagSlotFromId
 
 local ITEM_SIZE = addon.ITEM_SIZE
 
-local IsBattlePayItem = addon.IsBattlePayItem
+local buttonClass, buttonProto = addon:NewClass("ItemButton", "Button", "ContainerFrameItemButtonTemplate", "AceEvent-3.0")
 
-local BAG_ITEM_QUALITY_COLORS = {
-	[1] = {r = 0.62, g = 0.62, b = 0.62},
-	[2] = {r = 1.00, g = 1.00, b = 1.00},
-	[3] = {r = 0.12, g = 1.00, b = 1.00},
-	[4] = {r = 0.00, g = 0.44, b = 0.87},
-	[5] = {r = 0.64, g = 0.21, b = 0.93},
-	[6] = {r = 1.00, g = 0.50, b = 0.00},
-	[7] = {r = 0.90, g = 0.80, b = 0.50},
-	[8] = {r = 0.00, g = 0.8, b = 1.0},
-}
-
---------------------------------------------------------------------------------
--- Button initialization
---------------------------------------------------------------------------------
-
-local buttonClass, buttonProto = addon:NewClass("ItemButton", "Button", "ContainerFrameItemButtonTemplate", "ABEvent-1.0")
-
-local childrenNames = { "Cooldown", "IconTexture", "IconQuestTexture", "Count", "Stock", "NormalTexture", "NewItemTexture" }
+local childrenNames = { "Cooldown", "IconTexture", "IconQuestTexture", "Count", "Stock", "NormalTexture" }
 
 function buttonProto:OnCreate()
 	local name = self:GetName()
 	for i, childName in pairs(childrenNames ) do
-		if not self[childName] then
-			self[childName] = _G[name..childName]
-		end
+		self[childName] = _G[name..childName]
 	end
 	self:RegisterForDrag("LeftButton")
 	self:RegisterForClicks("LeftButtonUp","RightButtonUp")
@@ -87,20 +46,6 @@ function buttonProto:OnCreate()
 	self:SetScript('OnHide', self.OnHide)
 	self:SetWidth(ITEM_SIZE)
 	self:SetHeight(ITEM_SIZE)
-	if self.NewItemTexture then
-		self.NewItemTexture:Hide()
-	end
-	--Search Overlay Texture
-	if not self.searchOverlay then
-		local searchOverlay = self:CreateTexture(nil, "ARTWORK")
-		searchOverlay:SetTexture("Interface\\BUTTONS\\WHITE8X8")
-		searchOverlay:SetVertexColor(0, 0, 0, 0.8)
-		searchOverlay:SetAllPoints()
-		searchOverlay:Hide()
-		self.searchOverlay = searchOverlay
-	end
-
-	self.SplitStack = nil -- Remove the function set up by the template
 end
 
 function buttonProto:OnAcquire(container, bag, slot)
@@ -132,38 +77,12 @@ function buttonProto:IsLocked()
 	return select(3, GetContainerItemInfo(self.bag, self.slot))
 end
 
-function buttonProto:SplitStack(split)
-	SplitContainerItem(self.bag, self.slot, split)
-end
-
---------------------------------------------------------------------------------
--- Generic bank button sub-type
---------------------------------------------------------------------------------
-
 local bankButtonClass, bankButtonProto = addon:NewClass("BankItemButton", "ItemButton")
 bankButtonClass.frameTemplate = "BankItemButtonGenericTemplate"
 
-function bankButtonProto:OnAcquire(container, bag, slot)
-	self.GetInventorySlot = nil -- Remove the method added by the template
-	self.inventorySlot = BankButtonIDToInvSlotID(slot)
-	return buttonProto.OnAcquire(self, container, bag, slot)
-end
-
 function bankButtonProto:IsLocked()
-	return IsInventoryItemLocked(self.inventorySlot)
+	return IsInventoryItemLocked(BankButtonIDToInvSlotID(self.slot))
 end
-
-function bankButtonProto:UpdateNew()
-	-- Not supported
-end
-
-function bankButtonProto:GetInventorySlot()
-	return self.inventorySlot
-end
-
---------------------------------------------------------------------------------
--- Pools and acquistion
---------------------------------------------------------------------------------
 
 local containerButtonPool = addon:CreatePool(buttonClass)
 local bankButtonPool = addon:CreatePool(bankButtonClass)
@@ -176,24 +95,18 @@ function addon:AcquireItemButton(container, bag, slot)
 	end
 end
 
--- Pre-spawn a bunch of buttons, when we are out of combat
--- because buttons created in combat do not work well
 hooksecurefunc(addon, 'OnInitialize', function()
 	addon:Debug('Prespawning buttons')
-	containerButtonPool:PreSpawn(160)
+	containerButtonPool:PreSpawn(100)
 end)
-
---------------------------------------------------------------------------------
--- Model data
---------------------------------------------------------------------------------
 
 function buttonProto:SetSection(section)
 	local oldSection = self.section
 	if oldSection ~= section then
-		self.section = section
 		if oldSection then
 			oldSection:RemoveItemButton(self)
 		end
+		self.section = section
 		return true
 	end
 end
@@ -239,28 +152,12 @@ function buttonProto:GetStack()
 	return self.stack
 end
 
-local function SimpleButtonSlotIterator(self, slotId)
-	if not slotId and self.bag and self.slot then
-		return GetSlotId(self.bag, self.slot), self.bag, self.slot, self.itemId, self.stack
-	end
-end
-
-function buttonProto:IterateSlots()
-	return SimpleButtonSlotIterator, self
-end
-
---------------------------------------------------------------------------------
--- Scripts & event handlers
---------------------------------------------------------------------------------
-
 function buttonProto:OnShow()
 	self:RegisterEvent('BAG_UPDATE_COOLDOWN', 'UpdateCooldown')
 	self:RegisterEvent('ITEM_LOCK_CHANGED', 'UpdateLock')
 	self:RegisterEvent('QUEST_ACCEPTED', 'UpdateBorder')
-	self:RegisterEvent('BAG_NEW_ITEMS_UPDATED', 'UpdateNew')
-	self:RegisterEvent('PLAYER_EQUIPMENT_CHANGED', 'FullUpdate')
 	if self.UpdateSearch then
-		self:RegisterMessage('INVENTORY_SEARCH_UPDATE', 'UpdateSearch')
+		self:RegisterEvent('INVENTORY_SEARCH_UPDATE', 'UpdateSearch')
 	end
 	self:RegisterEvent('UNIT_QUEST_LOG_CHANGED')
 	self:RegisterMessage('AdiBags_UpdateAllButtons', 'Update')
@@ -281,10 +178,6 @@ function buttonProto:UNIT_QUEST_LOG_CHANGED(event, unit)
 		self:UpdateBorder(event)
 	end
 end
-
---------------------------------------------------------------------------------
--- Display updating
---------------------------------------------------------------------------------
 
 function buttonProto:CanUpdate()
 	if not self:IsVisible() or addon.holdYourBreath then
@@ -324,7 +217,6 @@ function buttonProto:Update()
 	self:UpdateBorder()
 	self:UpdateCooldown()
 	self:UpdateLock()
-	self:UpdateNew()
 	if self.UpdateSearch then
 		self:UpdateSearch()
 	end
@@ -355,22 +247,12 @@ function buttonProto:UpdateLock(isolatedEvent)
 	end
 end
 
-function buttonProto:UpdateSearch()
-	if not self.searchOverlay then return end
-	local query = AdiBagsSearchBox:GetText() or ""
-	local searching = (query ~= "Search") and (query ~= "")
-	if (not self.hasItem) and (not searching) then self.searchOverlay:Hide() return end --Empty Slot Fix
-
-	local _, _, _, _, _, _, link, isFiltered = GetContainerItemInfo(self.bag, self.slot)
-	local success, result = pcall(addon.itemSearch.Matches, addon.itemSearch, link, (searching and query))
-	
-	if empty or (success and result) then
-		self.searchOverlay:Hide();
-	else
-		self.searchOverlay:Show();
-	end
-	if (query == "upgrade") or (query == "Upgrade") or (query == "+") or (query == "upg") then
-		if self.isUpgrade then
+if select(4, GetBuildInfo()) == 40300 then
+	function buttonProto:UpdateSearch()
+		local _, _, _, _, _, _, _, isFiltered = GetContainerItemInfo(self.bag, self.slot)
+		if isFiltered then
+			self.searchOverlay:Show();
+		else
 			self.searchOverlay:Hide();
 		end
 	end
@@ -380,81 +262,51 @@ function buttonProto:UpdateCooldown()
 	return ContainerFrame_UpdateCooldown(self.bag, self)
 end
 
-function buttonProto:UpdateNew()
-	if not self.BattlepayItemTexture then return end
-	if IsBattlePayItem(self.bag, self.slot) then
-		self.BattlepayItemTexture:Show()
-	else
-		self.BattlepayItemTexture:Hide()
-	end
-end
-
-function buttonProto:UpdateUpgradeIcon()
-	-- Use Pawn's (third-party addon) function if present; else fallback to Blizzard's.
-	local PawnIsContainerItemAnUpgrade = _G.PawnIsContainerItemAnUpgrade
-	local itemIsUpgrade = PawnIsContainerItemAnUpgrade and PawnIsContainerItemAnUpgrade(self.bag, self.slot) or IsContainerItemAnUpgrade(self.bag, self.slot)
-	if itemIsUpgrade or false then
-		self.UpgradeIcon:Show()
-	else
-		self.UpgradeIcon:Hide()
-	end
-end
-
-local function GetBorder(bag, slot, itemId, settings)
-	if not settings.qualityHighlight then
-		return
-	end
-	--! local _, _, _, quality = GetContainerItemInfo(bag, slot)
-	local _,_,quality = GetItemInfo(itemId)
-	if false and quality == 0 and settings.dimJunk then --TODO: actually fix this
-		local v = 1 - 0.5 * settings.qualityOpacity
-		return true, v, v, v, 1, nil, nil, nil, nil, "MOD"
-	end
-	local color = quality ~= ITEM_QUALITY_COMMON
-	local r,g,b = GetItemQualityColor(quality)
-	--print(r,g,b,color)
-	if quality == 3 then --Rare items blue does not pop enough in the interface
-		b = 1
-	end
-	if color then
-		return [[Interface\Buttons\UI-ActionButton-Border]], r, g, b, settings.qualityOpacity, 14/64, 49/64, 15/64, 50/64, "ADD"
-	end
-end
-
 function buttonProto:UpdateBorder(isolatedEvent)
-	local texture, r, g, b, a, x1, x2, y1, y2, blendMode
 	if self.hasItem then
-		texture, r, g, b, a, x1, x2, y1, y2, blendMode = GetBorder(self.bag, self.slot, self.itemLink or self.itemId, addon.db.profile)
-	end
-	if not texture then
-		self.IconQuestTexture:Hide()
-	else
-		local border = self.IconQuestTexture
-		if texture == true then
-			border:SetVertexColor(1, 1, 1, 1)
-			border:SetVertexColor(r or 1, g or 1, b or 1, a or 1)
-		else
-			border:SetTexture(texture)
-			border:SetVertexColor(r or 1, g or 1, b or 1, a or 1)
+		local texture, r, g, b, a, x1, x2, y1, y2, blendMode = nil, 1, 1, 1, 1, 0, 1, 0, 1, "BLEND"
+		local isQuestItem, questId, isActive = GetContainerItemQuestInfo(self.bag, self.slot)
+		if addon.db.profile.questIndicator and (questId and not isActive) then
+			texture = TEXTURE_ITEM_QUEST_BANG
+		elseif addon.db.profile.questIndicator and (questId or isQuestItem) then
+			texture = TEXTURE_ITEM_QUEST_BORDER
+		elseif addon.db.profile.qualityHighlight then
+			local _, _, quality = GetItemInfo(self.itemId)
+			if quality and quality >= ITEM_QUALITY_UNCOMMON then
+				r, g, b = GetItemQualityColor(quality)
+				a = addon.db.profile.qualityOpacity
+				texture, x1, x2, y1, y2 = [[Interface\Buttons\UI-ActionButton-Border]], 14/64, 49/64, 15/64, 50/64
+				blendMode = "ADD"
+			elseif quality == ITEM_QUALITY_POOR and addon.db.profile.dimJunk then
+				local v = 1 - 0.5 * addon.db.profile.qualityOpacity
+				texture, blendMode, r, g, b = true, "MOD", v, v, v
+			end
 		end
-		border:SetTexCoord(x1 or 0, x2 or 1, y1 or 0, y2 or 1)
-		border:SetBlendMode(blendMode or "BLEND")
-		border:Show()
+		if texture then
+			local border = self.IconQuestTexture
+			if texture == true then
+				border:SetVertexColor(1, 1, 1, 1)
+				border:SetTexture(r, g, b, a)
+			else
+				border:SetTexture(texture)
+				border:SetVertexColor(r, g, b, a)
+			end
+			border:SetTexCoord(x1, x2, y1, y2)
+			border:SetBlendMode(blendMode)
+			border:Show()
+			if isolatedEvent then
+				addon:SendMessage('AdiBags_UpdateBorder', self)
+			end
+			return
+		end
 	end
-	if self.JunkIcon then
-		local quality = self.hasItem and select(3, GetItemInfo(self.itemLink or self.itemId))
-		self.JunkIcon:SetShown(quality == 0 and addon:GetInteractingWindow() == "MERCHANT") --TODO: Show JunkIcon does not work
-	end
+	self.IconQuestTexture:Hide()
 	if isolatedEvent then
 		addon:SendMessage('AdiBags_UpdateBorder', self)
 	end
 end
 
---------------------------------------------------------------------------------
--- Item stack button
---------------------------------------------------------------------------------
-
-local stackClass, stackProto = addon:NewClass("StackButton", "Frame", "ABEvent-1.0")
+local stackClass, stackProto = addon:NewClass("StackButton", "Frame", "AceEvent-3.0")
 addon:CreatePool(stackClass, "AcquireStackButton")
 
 function stackProto:OnCreate()
@@ -576,12 +428,7 @@ function stackProto:SetVisibleSlot(slotId)
 	if slotId == self.slotId then return end
 	self.slotId = slotId
 	local button = self.button
-	local mouseover = false
 	if button then
-		if button:IsMouseOver() then
-			mouseover = true
-			button:GetScript('OnLeave')(button)
-		end
 		button.GetCount = nil
 		button:Release()
 	end
@@ -591,9 +438,6 @@ function stackProto:SetVisibleSlot(slotId)
 		button:SetAllPoints(self)
 		button:SetStack(self)
 		button:Show()
-		if mouseover then
-			button:GetScript('OnEnter')(button)
-		end
 	else
 		button = nil
 	end
@@ -643,20 +487,6 @@ function stackProto:GetBagFamily()
 	return self.button and self.button:GetBagFamily()
 end
 
-local function StackSlotIterator(self, previous)
-	local slotId = next(self.slots, previous)
-	if slotId then
-		local bag, slot = GetBagSlotFromId(slotId)
-		local _, count = GetContainerItemInfo(bag, slot)
-		return slotId, bag, slot, self:GetItemId(), count
-	end
-end
-
-function stackProto:IterateSlots()
-	return StackSlotIterator, self
-end
-
--- Reuse button methods
 stackProto.CanUpdate = buttonProto.CanUpdate
 stackProto.SetSection = buttonProto.SetSection
 stackProto.GetSection = buttonProto.GetSection

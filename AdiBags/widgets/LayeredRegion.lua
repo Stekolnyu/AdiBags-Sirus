@@ -1,29 +1,7 @@
---[[
-AdiBags - Adirelle's bag addon.
-Copyright 2010-2021 Adirelle (adirelle@gmail.com)
-All rights reserved.
-
-This file is part of AdiBags.
-
-AdiBags is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-AdiBags is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with AdiBags.  If not, see <http://www.gnu.org/licenses/>.
---]]
-
 local addonName, addon = ...
 local L = addon.L
 local safecall = addon.safecall
 
---<GLOBALS
 local _G = _G
 local assert = _G.assert
 local ipairs = _G.ipairs
@@ -33,11 +11,6 @@ local tinsert = _G.tinsert
 local tsort = _G.table.sort
 local type = _G.type
 local unpack = _G.unpack
---GLOBALS>
-
---------------------------------------------------------------------------------
--- Abstract layered region
---------------------------------------------------------------------------------
 
 local layeredRegionClass, layeredRegionProto = addon:NewClass("LayeredRegion", "Frame")
 
@@ -59,13 +32,18 @@ function layeredRegionProto:SetContainer(container)
 end
 
 function layeredRegionProto:OnShow()
-	if self.container then
-		self.container:UpdateVisibility()
-	else
+	if not self.isShown then
+		self.isShown = true
 		self:RequestLayout()
 	end
 end
-layeredRegionProto.OnHide = layeredRegionProto.OnShow
+
+function layeredRegionProto:OnHide()
+	if self.isShown then
+		self.isShown = false
+		self:RequestLayout()
+	end
+end
 
 function layeredRegionProto:AddWidget(widget, ...)
 	self:Debug('Adding widget', widget, ...)
@@ -79,37 +57,38 @@ function layeredRegionProto:AddWidget(widget, ...)
 		data.layered = true
 		widget:SetContainer(self)
 	else
+		data.isShown = widget:IsShown()
 		data.width = widget:GetWidth()
 		data.height = widget:GetHeight()
 
-		local resize_callback = function()
-			local width, height = widget:GetWidth(), widget:GetHeight()
-			if width and height and (data.width ~= width or data.height ~= height) then
-				data.width, data.height = width, height
-				self:RequestLayout()
-			end
-		end
-
 		local visibility_callback = function()
-			self:UpdateVisibility()
-			if widget:IsShown() then
+			local isShown = widget:IsShown()
+			if data.shown ~= isShown then
+				data.shown = isShown
 				self:RequestLayout()
 			end
 		end
 
 		widget:HookScript('OnShow', visibility_callback)
 		widget:HookScript('OnHide', visibility_callback)
-		widget:HookScript('OnSizeChanged', resize_callback)
+		widget:HookScript('OnSizeChanged', function()
+			local width, height = widget:GetWidth(), widget:GetHeight()
+			if width and height and (data.width ~= width or data.height ~= height) then
+				data.width, data.height = width, height
+				self:RequestLayout()
+			end
+		end)
+
 	end
 
-	self:UpdateVisibility()
+	self:RequestLayout()
 end
 
 function layeredRegionProto:Layout()
 	local wasDirty = self.dirtyLayout
 	self.dirtyLayout = nil
 	for i, data in pairs(self.widgets) do
-		if data.layered then
+		if data.layered and data.widget:IsShown() then
 			data.widget:Layout()
 		end
 	end
@@ -128,13 +107,6 @@ function layeredRegionProto:RequestLayout()
 		self:SetScript('OnUpdate', self.Layout)
 	end
 end
-
--- Default UpdateVisibility does nothing more than RequestLayout
-layeredRegionProto.UpdateVisibility = layeredRegionProto.RequestLayout
-
---------------------------------------------------------------------------------
--- Simple layered region
---------------------------------------------------------------------------------
 
 local simpleLayeredRegionClass, simpleLayeredRegionProto = addon:NewClass("SimpleLayeredRegion", "LayeredRegion")
 
@@ -189,22 +161,6 @@ function simpleLayeredRegionProto:OnWidgetAdded(data, order, size, xOffset, yOff
 	tsort(self.widgets, CompareWidgets)
 end
 
-function simpleLayeredRegionProto:UpdateVisibility()
-	local num = 0
-	for index, data in ipairs(self.widgets) do
-		if data.widget:IsShown() then
-			num = num + 1
-		end
-	end
-	if num > 0 and not self:IsShown() then
-		self:Show()
-	elseif num == 0 and self:IsShown() then
-		self:Hide()
-	else
-		self:RequestLayout()
-	end
-end
-
 function simpleLayeredRegionProto:OnLayout()
 	local dx, dy, sx, sy = self.dx, self.dy, self.sx, self.sy
 	local anchorPoint, spacing = self.anchorPoint, self.spacing
@@ -227,5 +183,11 @@ function simpleLayeredRegionProto:OnLayout()
 			num = num + 1
 		end
 	end
-	self:SetSize(width, height)
+	self:SetWidth(width)
+	self:SetHeight(height)
+	if num > 0 then
+		self:Show()
+	else
+		self:Hide()
+	end
 end

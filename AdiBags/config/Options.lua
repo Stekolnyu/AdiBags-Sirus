@@ -1,29 +1,6 @@
---[[
-AdiBags - Adirelle's bag addon.
-Copyright 2010-2021 Adirelle (adirelle@gmail.com)
-All rights reserved.
-
-This file is part of AdiBags.
-
-AdiBags is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-AdiBags is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with AdiBags.  If not, see <http://www.gnu.org/licenses/>.
---]]
-
-local addonName = "AdiBags"
-local addon = LibStub('AceAddon-3.0'):GetAddon(addonName)
+local addonName, addon = ...
 local L = addon.L
 
---<GLOBALS
 local _G = _G
 local HideUIPanel = _G.HideUIPanel
 local InterfaceOptionsFrame = _G.InterfaceOptionsFrame
@@ -31,18 +8,10 @@ local setmetatable = _G.setmetatable
 local strjoin = _G.strjoin
 local type = _G.type
 local unpack = _G.unpack
---GLOBALS>
-
-local safecall = addon.safecall
 
 local AceConfigDialog = LibStub('AceConfigDialog-3.0')
-local LSM = LibStub('LibSharedMedia-3.0')
 
 local options
-
---------------------------------------------------------------------------------
--- Option handler prototype
---------------------------------------------------------------------------------
 
 local handlerProto = {}
 local handlerMeta = { __index = handlerProto }
@@ -95,9 +64,6 @@ function handlerProto:Set(info, value, ...)
 	else
 		self.dbHolder:SendMessage('AdiBags_ConfigChanged', path)
 	end
-	if type(self.PostSet) == "function" then
-		self:PostSet(path, value, ...)
-	end
 end
 
 function handlerProto:IsDisabled(info)
@@ -105,17 +71,13 @@ function handlerProto:IsDisabled(info)
 end
 
 local handlers = {}
-function addon:GetOptionHandler(dbHolder, isFilter, postSet)
+function addon:GetOptionHandler(dbHolder, isFilter)
 	if not handlers[dbHolder] then
-		handlers[dbHolder] = setmetatable({dbHolder = dbHolder, isFilter = isFilter, PostSet = postSet}, handlerMeta)
-		dbHolder.SendMessage = LibStub('ABEvent-1.0').SendMessage
+		handlers[dbHolder] = setmetatable({dbHolder = dbHolder, isFilter = isFilter}, handlerMeta)
+		dbHolder.SendMessage = LibStub('AceEvent-3.0').SendMessage
 	end
 	return handlers[dbHolder]
 end
-
---------------------------------------------------------------------------------
--- Filter & plugin options
---------------------------------------------------------------------------------
 
 local filterOptions, moduleOptions = {}, {}
 
@@ -161,7 +123,6 @@ do
 					set = function(info, value)
 						addon.db.profile[data.dbKey][name] = value
 						if value then module:Enable() else module:Disable() end
-						self:UpdateFilters()
 					end,
 				},
 			}
@@ -193,13 +154,17 @@ do
 		end
 
 		if module.GetOptions then
-			local opts, handler = safecall(module, "GetOptions")
-			if opts then
-				extendedOptions = {
-					handler = handler,
-					args = opts,
-				}
-			end
+			local opts, handler = module:GetOptions()
+			extendedOptions = {
+				handler = handler,
+				args = opts,
+			}
+		elseif module.GetFilterOptions then
+			local opts, handler = module:GetFilterOptions()
+			extendedOptions = {
+				handler = handler,
+				args = opts,
+			}
 		end
 
 		data.options[name..'Basic'] = baseOptions
@@ -235,47 +200,37 @@ local function UpdateFilterOrder()
 	end
 end
 
---------------------------------------------------------------------------------
--- Core options
---------------------------------------------------------------------------------
+local lockOption = {
+	name = function()
+		return addon.anchor:IsShown() and L["Lock anchor"] or L["Unlock anchor"]
+	end,
+	desc = L["Click to toggle the bag anchor."],
+	type = 'execute',
+	order = 110,
+	func = function()
+		addon:ToggleAnchor()
+	end,
+	disabled = function(info) return (info.handler and info.handler:IsDisabled(info)) or addon.db.profile.positionMode ~= 'anchored' end,
+}
 
-local function GetOptions()
+function addon:GetOptions()
 	if options then return options end
-
-	local lockOption = {
-		name = function()
-			return addon.anchor:IsShown() and L["Lock anchor"] or L["Unlock anchor"]
-		end,
-		desc = L["Click to toggle the bag anchor."],
-		type = 'execute',
-		order = 110,
-		func = function()
-			addon:ToggleAnchor()
-		end,
-		disabled = function(info) return (info.handler and info.handler:IsDisabled(info)) or addon.db.profile.positionMode ~= 'anchored' end,
-	}
-
 	filterOptions._desc = {
 		name = L['Filters are used to dispatch items in bag sections. One item can only appear in one section. If the same item is selected by several filters, the one with the highest priority wins.'],
 		type = 'description',
 		order = 1,
 	}
-	local profiles = LibStub('AceDBOptions-3.0'):GetOptionsTable(addon.db)
+	local profiles = LibStub('AceDBOptions-3.0'):GetOptionsTable(self.db)
 	profiles.order = 600
 	profiles.disabled = false
 	local bagList = {}
-	for name, module in addon:IterateModules() do
+	for name, module in self:IterateModules() do
 		if module.isBag then
 			bagList[module.bagName] = L[module.bagName]
 		end
 	end
 	options = {
-		--[===[@debug@
-		name = addonName..' DEV',
-		--@end-debug@]===]
-		--@non-debug@
-		name = addonName..' v1.9.26-bcc',
-		--@end-non-debug@
+		name = addonName,
 		type = 'group',
 		handler = addon:GetOptionHandler(addon),
 		get = 'Get',
@@ -289,200 +244,116 @@ local function GetOptions()
 				order = 100,
 				disabled = false,
 			},
-			rightClickConfig = {
-				name = L['Right-click to open options'],
-				desc = L['When checked, right-clicking on an empty space of a bag opens the configuration panel.'],
-				width = 'double',
-				type = 'toggle',
-				order = 110,
-			},
 			bags = {
 				name = L['Bags'],
 				type = 'group',
-				order = 120,
+				order = 100,
 				args = {
 					bags = {
-						name = L['Enabled bags'],
-						desc = L['Select which bags AdiBags should display.'],
+						name = L[''],
+						desc = L[''],
 						type = 'multiselect',
 						order = 90,
 						values = bagList,
 					},
-					automatically = {
-						name = L['Automatically...'],
-						type = 'group',
-						inline = true,
-						order = 95,
-						args = {
-							autoOpen = {
-								name = L["Open"],
-								desc = L["Automatically open the bags at merchant's, bank, ..."],
-								type = 'toggle',
-								order = 95,
-							}
+					positionMode = {
+						name = L['Position mode'],
+						desc = L['Select how the bag are positionned.'],
+						type = 'select',
+						order = 100,
+						values = {
+							anchored = L['Anchored'],
+							manual = L['Manual'],
 						}
 					},
-					position = {
-						name = L['Position & size'],
-						type = 'group',
-						order = 100,
-						inline = true,
-						args = {
-							positionMode = {
-								name = L['Position mode'],
-								desc = L['Select how the bags are positionned.'],
-								type = 'select',
-								order = 100,
-								values = {
-									anchored = L['Anchored'],
-									manual = L['Manual'],
-								}
-							},
-							toggleAnchor = lockOption,
-							reset = {
-								name = L['Reset position'],
-								desc = L['Click there to reset the bag positions and sizes.'],
-								type = 'execute',
-								order = 120,
-								func = function() addon:ResetBagPositions() end,
-							},
-							hideAnchor = {
-								name = L['Do not show anchor point'],
-								desc = L['Hide the colored corner shown when you move the bag.'],
-								type = 'toggle',
-								order = 125,
-							},
-							scale = {
-								name = L['Scale'],
-								desc = L['Use this to adjust the bag scale.'],
-								type = 'range',
-								order = 130,
-								isPercent = true,
-								min = 0.1,
-								max = 3.0,
-								step = 0.1,
-								set = function(info, newScale)
-									addon.db.profile.scale = newScale
-									addon:LayoutBags()
-									addon:SendMessage('AdiBags_LayoutChanged')
-								end,
-							},
-							maxHeight = {
-								name = L['Maximum bag height'],
-								desc = L['Adjust the maximum height of the bags, relative to screen size.'],
-								type = 'range',
-								order = 150,
-								isPercent = true,
-								min = 0.30,
-								max = 0.90,
-								step = 0.01,
-							},
-						},
+					toggleAnchor = lockOption,
+					reset = {
+						name = L['Reset position'],
+						desc = L['Click there to reset the bag positions and sizes.'],
+						type = 'execute',
+						order = 120,
+						func = function() addon:ResetBagPositions() end,
 					},
-					sections = {
-						name = L['Section layout'],
-						type = 'group',
-						inline = true,
-						args = {
-							compactLayout = {
-								name = L['Compact layout'],
-								desc = L['When enabled, AdiBags reorder the section to achieve a more compact layout.'],
-								type = 'toggle',
-								order = 135,
-								set = function(info, compactLayout)
-									addon.db.profile.compactLayout = compactLayout
-									addon:SendMessage('AdiBags_LayoutChanged')
-								end,
-							},
-							columnWidth = {
-								name = L['Column width'],
-								desc = L['Adjust the width of the bag columns.'],
-								type = 'group',
-								inline = true,
-								order = 140,
-								args = {
-									Backpack = {
-										name = L['Backpack'],
-										type = 'range',
-										min = 4,
-										max = 20,
-										step = 1,
-										arg = { "columnWidth", "Backpack" },
-									},
-									Bank = {
-										name = L['Bank'],
-										type = 'range',
-										min = 4,
-										max = 20,
-										step = 1,
-										arg = { "columnWidth", "Bank" },
-									},
-								},
-							},
-						},
+					scale = {
+						name = L['Scale'],
+						desc = L['Use this to adjust the bag scale.'],
+						type = 'range',
+						order = 130,
+						isPercent = true,
+						min = 0.1,
+						max = 3.0,
+						step = 0.1,
+						set = function(info, newScale)
+							self.db.profile.scale = newScale
+							self:LayoutBags()
+							self:SendMessage('AdiBags_LayoutChanged')
+						end,
 					},
-				},
-			},
-			skin = {
-				name = L['Skin'],
-				type = 'group',
-				order = 150,
-				args = {
-					bagFont = addon:CreateFontOptions(addon.bagFont, L["Bag title"], 10),
-					sectionFont = addon:CreateFontOptions(addon.sectionFont, L["Section header"], 15),
-					background = {
-						name = L['Bag background'],
+					rowWidth = {
+						name = L['Maximum row width'],
+						desc = L['Adjust the maximum number of items per row.'],
 						type = 'group',
 						inline = true,
-						order = 20,
+						order = 145,
 						args = {
-							texture = {
-								name = L['Texture'],
-								type = 'select',
-								dialogControl = 'LSM30_Background',
-								values = AceGUIWidgetLSMlists.background,
-								order = 10,
-								arg = { "skin", "background" },
-							},
-							insets = {
-								name = L['Insets'],
+							Backpack = {
+								name = L['Backpack'],
 								type = 'range',
-								order = 20,
-								arg = { "skin", "insets" },
-								min = -16,
+								min = 4,
 								max = 16,
 								step = 1,
+								arg = { "rowWidth", "Backpack" },
 							},
-							border = {
-								name = L['Border'],
-								type = 'select',
-								dialogControl = 'LSM30_Border',
-								values = AceGUIWidgetLSMlists.border,
-								order = 30,
-								arg = { "skin", "border" },
-							},
-							borderWidth = {
-								name = L['Border width'],
+							Bank = {
+								name = L['Bank'],
 								type = 'range',
-								order = 40,
-								arg = { "skin", "borderWidth" },
-								min = 1,
-								max = 64,
+								min = 4,
+								max = 16,
 								step = 1,
+								arg = { "rowWidth", "Bank" },
 							},
+						},
+					},
+					maxHeight = {
+						name = L['Maximum bag height'],
+						desc = L['Adjust the maximum height of the bags, relative to screen size.'],
+						type = 'range',
+						order = 145,
+						isPercent = true,
+						min = 0.30,
+						max = 0.90,
+						step = 0.01,
+					},
+					laxOrdering = {
+						name = L['Layout priority'],
+						type = 'select',
+						width = 'double',
+						order = 149,
+						values = {
+							[0] = L['Strictly keep ordering'],
+							[1] = L['Group sections of same category'],
+							[2] = L['Fill lines at most'],
+						}
+					},
+					backgroundColors = {
+						name = L['Background colors'],
+						type = 'group',
+						inline = true,
+						order = 150,
+						args = {
 							backpackColor = {
-								name = L['Backpack color'],
+								name = L['Backpack'],
 								type = 'color',
-								order = 50,
+								order = 150,
 								hasAlpha = true,
-								arg = { "skin", "BackpackColor" },
+								arg = { "backgroundColors", "Backpack" },
 							},
 							bankColor = {
-								name = L['Bank color'],
+								name = L['Bank'],
 								type = 'color',
-								order = 60,
+								order = 160,
 								hasAlpha = true,
-								arg = { "skin", "BankColor" },
+								arg = { "backgroundColors", "Bank" },
 							},
 						},
 					}
@@ -541,6 +412,12 @@ local function GetOptions()
 							},
 						},
 					},
+					questIndicator = {
+						name = L['Quest indicator'],
+						desc = L['Check this to display an indicator on quest items.'],
+						type = 'toggle',
+						order = 230,
+					},
 					showBagType = {
 						name = L['Bag type'],
 						desc = L['Check this to display a bag type tag in the top left corner of items.'],
@@ -593,7 +470,7 @@ local function GetOptions()
 								end
 							},
 							notWhenTrading = {
-								name = L["At mechants', bank, auction house, ..."],
+								name = L['When trading:'],
 								desc = L["Change stacking at merchants', auction house, bank, mailboxes or when trading."],
 								order = 40,
 								width = 'double',
@@ -631,30 +508,49 @@ local function GetOptions()
 		},
 		plugins = {}
 	}
-	hooksecurefunc(addon, "OnModuleCreated", OnModuleCreated)
+	addon.OnModuleCreated = OnModuleCreated
 	for name, module in addon:IterateModules() do
-		OnModuleCreated(addon, module)
+		addon:OnModuleCreated(module)
 	end
 	UpdateFilterOrder()
 
-	LibStub('ABEvent-1.0').RegisterMessage(addonName.."_Config", 'AdiBags_FiltersChanged', UpdateFilterOrder)
+	LibStub('AceEvent-3.0').RegisterMessage(addonName.."Options", 'AdiBags_FiltersChanged', UpdateFilterOrder)
 
 	return options
 end
 
---------------------------------------------------------------------------------
--- Setup
---------------------------------------------------------------------------------
+function addon:InitializeOptions()
+	local AceConfig = LibStub('AceConfig-3.0')
 
-LibStub('AceConfig-3.0'):RegisterOptionsTable(addonName, GetOptions)
+	AceConfig:RegisterOptionsTable(addonName.."BlizzOptions", {
+		name = addonName,
+		type = 'group',
+		args = {
+			configure = {
+				name = L['Configure'],
+				type = 'execute',
+				order = 100,
+				func = function()
+					local currentFrame = InterfaceOptionsFrame
+					while currentFrame do
+						local lastFrame = currentFrame.lastFrame
+						HideUIPanel(currentFrame)
+						currentFrame = lastFrame
+					end
+					LibStub('AceTimer-3.0').ScheduleTimer(addonName, addon.OpenOptions, 0)
+				end,
+			},
+			lock = lockOption,
+		},
+	})
+	AceConfigDialog:AddToBlizOptions(addonName.."BlizzOptions", addonName)
 
-function addon:OpenOptions(...)
+	AceConfig:RegisterOptionsTable(addonName, function() return self:GetOptions() end)
+
+	LibStub('AceConsole-3.0'):RegisterChatCommand("adibags", addon.OpenOptions, true)
+end
+
+function addon.OpenOptions()
 	AceConfigDialog:SetDefaultSize(addonName, 800, 600)
-	if select('#', ...) > 0 then
-		self:Debug('OpenOptions =>', select('#', ...), ...)
-		AceConfigDialog:Open(addonName)
-		AceConfigDialog:SelectGroup(addonName, ...)
-	elseif not AceConfigDialog:Close(addonName) then
-		AceConfigDialog:Open(addonName)
-	end
+	AceConfigDialog:Open(addonName)
 end

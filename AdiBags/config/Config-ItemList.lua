@@ -1,29 +1,6 @@
---[[
-AdiBags - Adirelle's bag addon.
-Copyright 2010-2021 Adirelle (adirelle@gmail.com)
-All rights reserved.
-
-This file is part of AdiBags.
-
-AdiBags is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-AdiBags is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with AdiBags.  If not, see <http://www.gnu.org/licenses/>.
---]]
-
-local addonName = "AdiBags"
-local addon = LibStub('AceAddon-3.0'):GetAddon(addonName)
+local addonName, addon = ...
 local L = addon.L
 
---<GLOBALS
 local _G = _G
 local ClearCursor = _G.ClearCursor
 local CreateFrame = _G.CreateFrame
@@ -38,13 +15,8 @@ local tonumber = _G.tonumber
 local tsort = _G.table.sort
 local UIParent = _G.UIParent
 local wipe = _G.wipe
---GLOBALS>
 
 local AceGUI = LibStub("AceGUI-3.0")
-
---------------------------------------------------------------------------------
--- Item list element
---------------------------------------------------------------------------------
 
 do
 	local Type, Version = "ItemListElement", 1
@@ -54,7 +26,7 @@ do
 		local widget = frame.obj
 		local listWidget = widget:GetUserData('listwidget')
 		if not listWidget then return end
-		PlaySound("igMainMenuOptionCheckBoxOn") --PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		PlaySound("igMainMenuOption")
 		local previousId = widget.itemId
 		if previousId then
 			listWidget:Fire("OnValueChanged", previousId, false)
@@ -162,17 +134,12 @@ do
 	AceGUI:RegisterWidgetType(Type, Constructor, Version)
 end
 
---------------------------------------------------------------------------------
--- Item list
---------------------------------------------------------------------------------
-
 do
 	local Type, Version = "ItemList", 1
 
 	local methods = {}
 
 	function methods:SetMultiselect(flag)
-		-- Do not care
 	end
 
 	function methods:SetLabel(name)
@@ -212,11 +179,9 @@ do
 	end
 
 	function methods:SetItemValue(key, value)
-		-- Do not care
 	end
 
 	local function Constructor()
-		-- Create a InlineGroup widget an "promote" it to ItemList
 		local widget = AceGUI.WidgetRegistry.InlineGroup()
 		widget.type = Type
 		for method, func in pairs(methods) do
@@ -227,3 +192,4 @@ do
 
 	AceGUI:RegisterWidgetType(Type, Constructor, Version)
 end
+

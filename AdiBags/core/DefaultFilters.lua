@@ -1,56 +1,33 @@
---[[
-AdiBags - Adirelle's bag addon.
-Copyright 2010-2021 Adirelle (adirelle@gmail.com)
-All rights reserved.
-
-This file is part of AdiBags.
-
-AdiBags is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-AdiBags is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with AdiBags.  If not, see <http://www.gnu.org/licenses/>.
---]]
-
 local addonName, addon = ...
 
 function addon:SetupDefaultFilters()
-	-- Globals: GetEquipmentSetLocations
-	--<GLOBALS
 	local _G = _G
 	local BANK_CONTAINER = _G.BANK_CONTAINER
 	local BANK_CONTAINER_INVENTORY_OFFSET = _G.BANK_CONTAINER_INVENTORY_OFFSET
 	local EquipmentManager_UnpackLocation = _G.EquipmentManager_UnpackLocation
 	local format = _G.format
+	local GetContainerItemQuestInfo = _G.GetContainerItemQuestInfo
+	local GetEquipmentSetInfo = _G.GetEquipmentSetInfo
+	local GetNumEquipmentSets = _G.GetNumEquipmentSets
 	local pairs = _G.pairs
 	local wipe = _G.wipe
-	--GLOBALS>
 
-	local L = addon.L
+	local L, BI = addon.L, addon.BI
 
-	-- Make some strings local to speed things
-	local CONSUMMABLE = "Consumable" -- GetItemClassInfo(LE_ITEM_CLASS_CONSUMABLE)
-	--Todo: Add Localization for Junk variable
-	local JUNK = "Junk"--GetItemSubClassInfo(LE_ITEM_CLASS_MISCELLANEOUS, 0)
-	local MISCELLANEOUS = "Miscellaneous"--GetItemClassInfo(LE_ITEM_CLASS_MISCELLANEOUS)
-	local QUEST = "Quest"--GetItemClassInfo(LE_ITEM_CLASS_QUESTITEM)
-	local RECIPE = "Recipe" --GetItemClassInfo(LE_ITEM_CLASS_RECIPE)
-	local TRADE_GOODS = "Tradeskill" --GetItemClassInfo(LE_ITEM_CLASS_TRADEGOODS)
-	local WEAPON = "Weapon" -- GetItemClassInfo(LE_ITEM_CLASS_WEAPON)
-	local ARMOR = "Armor" --GetItemClassInfo(LE_ITEM_CLASS_ARMOR)
-	local KEY = "Key" --GetItemClassInfo(LE_ITEM_CLASS_KEY)
-	local JEWELRY = L['Jewelry']
+	local CONSUMMABLE = BI['Consumable']
+	local GEM = BI['Gem']
+	local GLYPH = BI['Glyph']
+	local JUNK = BI['Junk']
+	local MISCELLANEOUS = BI['Miscellaneous']
+	local QUEST = BI['Quest']
+	local RECIPE = BI['Recipe']
+	local TRADE_GOODS = BI['Trade Goods']
+	local WEAPON = BI["Weapon"]
+	local ARMOR =  BI["Armor"]
+	local JEWELRY = L["Jewelry"]
 	local EQUIPMENT = L['Equipment']
 	local AMMUNITION = L['Ammunition']
 
-	-- Define global ordering
 	self:SetCategoryOrders{
 		[QUEST] = 30,
 		[TRADE_GOODS] = 20,
@@ -58,37 +35,142 @@ function addon:SetupDefaultFilters()
 		[CONSUMMABLE] = -10,
 		[MISCELLANEOUS] = -20,
 		[AMMUNITION] = -30,
-		[KEY] = -40,
-		[JUNK] = -50,
+		[JUNK] = -40,
 	}
 
-	-- [90] Key
 	do
-		local keyFilter = addon:RegisterFilter('Key', 90, function(self, slotData)
-			if slotData.bagFamily == 256 or slotData.class == KEY or slotData.subclass == KEY then
-				return KEY
-			else
-				return false
+		local setFilter = addon:RegisterFilter("ItemSets", 90, "AceEvent-3.0", "AceBucket-3.0")
+		setFilter.uiName = L['Gear manager item sets']
+		setFilter.uiDesc = L['Put items belonging to one or more sets of the built-in gear manager in specific sections.']
+
+		function setFilter:OnInitialize()
+			self.db = addon.db:RegisterNamespace('ItemSets', {
+				profile = { oneSectionPerSet = true },
+				char = { mergedSets = { ['*'] = false } },
+			})
+			self.names = {}
+			self.slots = {}
+		end
+
+		function setFilter:OnEnable()
+			self:RegisterEvent('EQUIPMENT_SETS_CHANGED')
+			self:RegisterMessage("AdiBags_PreFilter")
+			self:RegisterMessage("AdiBags_PreContentUpdate")
+			self:UpdateNames()
+		end
+
+		local GetSlotId = addon.GetSlotId
+
+		function setFilter:UpdateNames()
+			self:Debug('Updating names')
+			wipe(self.names)
+			for i = 1, GetNumEquipmentSets() do
+				local name = GetEquipmentSetInfo(i)
+				self.names[name] = name
 			end
-		end)
-		keyFilter.uiName = KEY
-		keyFilter.uiDesc = L['Put items categorized as keys in their own section.']
+			self.dirty = true
+		end
+
+		function setFilter:UpdateSlots()
+			self:Debug('Updating slots')
+			wipe(self.slots)
+			local missing = false
+			for i = 1, GetNumEquipmentSets() do
+				local name = GetEquipmentSetInfo(i)
+				local ids = GetEquipmentSetItemIDs(name)
+				local locations = GetEquipmentSetLocations(name)
+				if ids and locations then
+					for invId, location in pairs(locations) do
+						if location ~= 0 and location ~= 1 and ids[invId] ~= 0 then
+							local player, bank, bags, slot, container = EquipmentManager_UnpackLocation(location)
+							local slotId
+							if bags and slot and container then
+								slotId = GetSlotId(container, slot)
+							elseif bank and slot then
+								slotId = GetSlotId(BANK_CONTAINER, slot - BANK_CONTAINER_INVENTORY_OFFSET)
+							elseif not player or not slot then
+								missing = true
+							end
+							if slotId and not self.slots[slotId] then
+								self.slots[slotId] = name
+							end
+						end
+					end
+				else
+					missing = true
+				end
+			end
+			self.dirty = not missing
+		end
+
+		function setFilter:EQUIPMENT_SETS_CHANGED(event)
+			self:UpdateNames()
+			self:SendMessage('AdiBags_FiltersChanged', true)
+		end
+
+		function setFilter:AdiBags_PreContentUpdate(event)
+			self.dirty = true
+		end
+
+		function setFilter:AdiBags_PreFilter(event)
+			if self.dirty then
+				self:UpdateSlots()
+			end
+		end
+
+		local SETS, SET_NAME =  L['Sets'], L["Set: %s"]
+		function setFilter:Filter(slotData)
+			local name = self.slots[slotData.slotId]
+			if name then
+				if not self.db.profile.oneSectionPerSet or self.db.char.mergedSets[name] then
+					return SETS, EQUIPMENT
+				else
+					return format(SET_NAME, name), EQUIPMENT
+				end
+			end
+		end
+
+		function setFilter:GetFilterOptions()
+			return {
+				oneSectionPerSet = {
+					name = L['One section per set'],
+					desc = L['Check this to display one individual section per set. If this is disabled, there will be one big "Sets" section.'],
+					type = 'toggle',
+					order = 10,
+				},
+				mergedSets = {
+					name = L['Merged sets'],
+					desc = L['Check sets that should be merged into a unique "Sets" section. This is obviously a per-character setting.'],
+					type = 'multiselect',
+					order = 20,
+					values = self.names,
+					get = function(info, name)
+						return self.db.char.mergedSets[name]
+					end,
+					set = function(info, name, value)
+						self.db.char.mergedSets[name] = value
+						self:SendMessage('AdiBags_FiltersChanged')
+					end,
+					disabled = function() return not self.db.profile.oneSectionPerSet end,
+				},
+			}, addon:GetOptionHandler(self, true)
+		end
+
 	end
 
-	-- [75] Quest Items
 	do
 		local questItemFilter = addon:RegisterFilter('Quest', 75, function(self, slotData)
 			if slotData.class == QUEST or slotData.subclass == QUEST then
 				return QUEST
 			else
-				return false
+				local isQuestItem, questId = GetContainerItemQuestInfo(slotData.bag, slotData.slot)
+				return (questId or isQuestItem) and QUEST
 			end
 		end)
 		questItemFilter.uiName = L['Quest Items']
 		questItemFilter.uiDesc = L['Put quest-related items in their own section.']
 	end
 
-	-- [60] Equipment
 	do
 		local equipCategories = {
 			INVTYPE_2HWEAPON = WEAPON,
@@ -145,7 +227,7 @@ function addon:SetupDefaultFilters()
 			self.db = addon.db:RegisterNamespace('Equipment', { profile = { dispatchRule = 'category', armorTypes = false } })
 		end
 
-		function equipmentFilter:GetOptions()
+		function equipmentFilter:GetFilterOptions()
 			return {
 				dispatchRule = {
 					name = L['Section setup'],
@@ -170,7 +252,6 @@ function addon:SetupDefaultFilters()
 		end
 	end
 
-	-- [10] Item classes
 	do
 		local itemCat = addon:RegisterFilter('ItemCategory', 10)
 		itemCat.uiName = L['Item category']
@@ -180,12 +261,14 @@ function addon:SetupDefaultFilters()
 		function itemCat:OnInitialize(slotData)
 			self.db = addon.db:RegisterNamespace(self.moduleName, {
 				profile = {
-					splitBySubclass = { false }
+					splitBySubclass = { false },
+					mergeGems = true,
+					mergeGlyphs = true,
 				}
 			})
 		end
 
-		function itemCat:GetOptions()
+		function itemCat:GetFilterOptions()
 			return {
 				splitBySubclass = {
 					name = L['Split by subcategories'],
@@ -196,14 +279,35 @@ function addon:SetupDefaultFilters()
 						[TRADE_GOODS] = TRADE_GOODS,
 						[CONSUMMABLE] = CONSUMMABLE,
 						[MISCELLANEOUS] = MISCELLANEOUS,
+						[GEM] = GEM,
+						[GLYPH] = GLYPH,
 						[RECIPE] = RECIPE,
 					}
-				}
+				},
+				mergeGems = {
+					name = L['Gems are trade goods'],
+					desc = L['Consider gems as a subcategory of trade goods'],
+					type = 'toggle',
+					width = 'double',
+					order = 20,
+				},
+				mergeGlyphs = {
+					name = L['Glyphs are trade goods'],
+					desc = L['Consider glyphs as a subcategory of trade goods'],
+					type = 'toggle',
+					width = 'double',
+					order = 30,
+				},
 			}, addon:GetOptionHandler(self, true)
 		end
 
 		function itemCat:Filter(slotData)
 			local class, subclass = slotData.class, slotData.subclass
+			if class == GEM and self.db.profile.mergeGems then
+				class, subclass = TRADE_GOODS, class
+			elseif class == GLYPH and self.db.profile.mergeGlyphs then
+				class, subclass = TRADE_GOODS, class
+			end
 			if self.db.profile.splitBySubclass[class] then
 				return subclass, class
 			else

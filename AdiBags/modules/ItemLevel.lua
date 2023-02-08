@@ -1,32 +1,9 @@
---[[
-AdiBags - Adirelle's bag addon.
-Copyright 2013-2021 Adirelle (adirelle@gmail.com)
-All rights reserved.
-
-This file is part of AdiBags.
-
-AdiBags is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-AdiBags is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with AdiBags.  If not, see <http://www.gnu.org/licenses/>.
---]]
-
 local addonName, addon = ...
 local L = addon.L
 
---<GLOBALS
 local _G = _G
 local abs = _G.math.abs
 local GetItemInfo = _G.GetItemInfo
-local ITEM_QUALITY_POOR = ITEM_QUALITY0_DESC
 local QuestDifficultyColors = _G.QuestDifficultyColors
 local UnitLevel = _G.UnitLevel
 local modf = _G.math.modf
@@ -35,9 +12,8 @@ local min = _G.min
 local pairs = _G.pairs
 local select = _G.select
 local unpack = _G.unpack
---GLOBALS>
 
-local mod = addon:NewModule('ItemLevel', 'ABEvent-1.0')
+local mod = addon:NewModule('ItemLevel', 'AceEvent-3.0')
 mod.uiName = L['Item level']
 mod.uiDesc = L['Display the level of equippable item in the top left corner of the button.']
 
@@ -46,6 +22,7 @@ local colorSchemes = {
 }
 
 local texts = {}
+local ItemUpgradeInfo = LibStub('LibItemUpgradeInfo-1.0')
 
 local SyLevel = _G.SyLevel
 local SyLevelBypass
@@ -59,10 +36,11 @@ function mod:OnInitialize()
 	self.db = addon.db:RegisterNamespace(self.moduleName, {
 		profile = {
 			useSyLevel = false,
-			equippableOnly = true,
-			colorScheme = 'level',
+			equippableOnly = false,
+			colorScheme = 'original',
 			minLevel = 1,
-			ignoreJunk = true
+			ignoreJunk = true,
+			ignoreHeirloom = true,
 		},
 	})
 	if self.db.profile.colored == true then
@@ -80,16 +58,11 @@ function mod:OnInitialize()
 			function() self:SendMessage('AdiBags_UpdateAllButtons') end,
 			'AdiBags'
 		)
-		SyLevel:RegisterFilterOnPipe('Adibags', 'Item level text')
-		SyLevelDB.EnabledFilters['Item level text']['Adibags'] = true
 	end
 end
 
 function mod:OnEnable()
 	self:RegisterMessage('AdiBags_UpdateButton', 'UpdateButton')
-	if SyLevel and self.db.profile.useSyLevel and not SyLevel:IsPipeEnabled('Adibags') then
-		SyLevel:EnablePipe('Adibags')
-	end
 	self:SendMessage('AdiBags_UpdateAllButtons')
 end
 
@@ -112,33 +85,32 @@ function mod:UpdateButton(event, button)
 	local link = button:GetItemLink()
 	local text = texts[button]
 
-	if link then -- FIXME!
-		-- local _, _, quality, _, reqLevel, _, _, _, loc = GetItemInfo(link)
-		-- local item = Item:CreateFromBagAndSlot(button.bag, button.slot)
-		-- local level = item and item:GetCurrentItemLevel() or 0
-		-- if level >= settings.minLevel
-		-- 	and (quality ~= ITEM_QUALITY_POOR or not settings.ignoreJunk)
-		-- 	and (loc ~= "" or not settings.equippableOnly)
-		-- then
-		-- 	if SyLevel then
-		-- 		if settings.useSyLevel then
-		-- 			if text then
-		-- 				text:Hide()
-		-- 			end
-		-- 			SyLevel:CallFilters('Adibags', button, link)
-		-- 			return
-		-- 		else
-		-- 			SyLevel:CallFilters('Adibags', button, nil)
-		-- 		end
-		-- 	end
-		-- 	if not text then
-		-- 		text = CreateText(button)
-		-- 	end
-		-- 	text:SetText(level)
-		-- 	text:SetTextColor(colorSchemes[settings.colorScheme](level, quality, reqLevel, (loc ~= "")))
-		-- 	return text:Show()
-		-- end
-		return
+	if link then
+		local _, _, quality, _, reqLevel, _, _, _, loc = GetItemInfo(link)
+		local level = ItemUpgradeInfo:GetUpgradedItemLevel(link) or 0 -- Ugly workaround
+		if level >= settings.minLevel
+			and (quality > 0 or not settings.ignoreJunk)
+			and (loc ~= "" or not settings.equippableOnly)
+			and (quality ~= 7 or not settings.ignoreHeirloom)
+		then
+			if SyLevel then
+				if settings.useSyLevel then
+					if text then
+						text:Hide()
+					end
+					SyLevel:CallFilters('Adibags', button, link)
+					return
+				else
+					SyLevel:CallFilters('Adibags', button, nil)
+				end
+			end
+			if not text then
+				text = CreateText(button)
+			end
+			text:SetText(level)
+			text:SetTextColor(colorSchemes[settings.colorScheme](level, quality, reqLevel, (loc ~= "")))
+			return text:Show()
+		end
 	end
 	if SyLevel then
 		SyLevel:CallFilters('Adibags', button, nil)
@@ -167,7 +139,7 @@ function mod:GetOptions()
 			name = L['Color scheme'],
 			desc = L['Which color scheme should be used to display the item level ?'],
 			type = 'select',
-			hidden = SyLevelBypass,
+			disabled = SyLevelBypass,
 			values = {
 				none     = L['None'],
 				original = L['Same as InventoryItemLevels'],
@@ -180,9 +152,9 @@ function mod:GetOptions()
 			desc = L['Do not show levels under this threshold.'],
 			type = 'range',
 			min = 1,
-			max = 1000,
+			max = 600,
 			step = 1,
-			bigStep = 10,
+			bigStep = 5,
 			order = 30,
 		},
 		ignoreJunk = {
@@ -190,7 +162,13 @@ function mod:GetOptions()
 			desc = L['Do not show level of poor quality items.'],
 			type = 'toggle',
 			order = 40,
-		}
+		},
+		ignoreHeirloom = {
+			name = L['Ignore heirloom items'],
+			desc = L['Do not show level of heirloom items.'],
+			type = 'toggle',
+			order = 50,
+		},
 	}, addon:GetOptionHandler(self)
 end
 
@@ -198,16 +176,16 @@ end
 do
 	local colors = {
 		-- { upper bound, r, g, b }
-		{  30, 0.55, 0.55, 0.55 }, -- gray
-		{  58, 1.00, 0.00, 0.00 }, -- red
-		{  70, 1.00, 0.70, 0.00 }, -- orange
-		{  80, 1.00, 1.00, 0.00 }, -- yellow
-		{  85, 0.00, 1.00, 0.00 }, -- green
-		{ 100, 0.00, 1.00, 1.00 }, -- cyan
-		{ 128, 0.00, 0.80, 1.00 }, -- blue
-		{ 141, 1.00, 0.50, 1.00 }, -- purple,
-		{ 164, 1.00, 0.75, 1.00 }, -- pink
-		{ 200, 1.00, 1.00, 1.00 }, -- white
+		{ 150, 0.55, 0.55, 0.55 }, -- gray
+		{ 250, 1.00, 0.00, 0.00 }, -- red
+		{ 300, 1.00, 0.70, 0.00 }, -- orange
+		{ 350, 1.00, 1.00, 0.00 }, -- yellow
+		{ 372, 0.00, 1.00, 0.00 }, -- green
+		{ 385, 0.00, 1.00, 1.00 }, -- cyan
+		{ 397, 0.00, 0.80, 1.00 }, -- blue
+		{ 403, 1.00, 0.50, 1.00 }, -- purple,
+		{ 410, 1.00, 0.75, 1.00 }, -- pink
+		{ 999, 1.00, 1.00, 1.00 }, -- white
 	}
 
 	colorSchemes.original = function(level)
@@ -308,14 +286,11 @@ do
 	end
 
 	local maxLevelRanges = {
-		[ 60] = {  58,  92 }, -- Classic
-		[ 70] = {  80, 164 }, -- The Burning Crusade
-		[ 80] = { 100, 102 }, -- Wrath of the Lich King
-		[ 85] = { 108, 114 }, -- Cataclysm
-		[ 90] = { 116, 130 }, -- Mists of Pandaria
-		[100] = { 136, 143 }, -- Warlords of Draenor
-		[110] = { 164, 250 }, -- Legion
-		[120] = { 370, 445 }, -- Battle for Azeroth
+		[60] = {  66,  92 },
+		[70] = { 100, 164 },
+		[80] = { 187, 284 },
+		[85] = { 333, 416 },
+		[90] = { 458, 580 }
 	}
 
 	local maxLevelColors = {}

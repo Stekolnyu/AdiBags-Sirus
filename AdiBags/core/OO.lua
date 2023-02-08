@@ -1,28 +1,6 @@
---[[
-AdiBags - Adirelle's bag addon.
-Copyright 2010-2021 Adirelle (adirelle@gmail.com)
-All rights reserved.
-
-This file is part of AdiBags.
-
-AdiBags is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-AdiBags is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with AdiBags.  If not, see <http://www.gnu.org/licenses/>.
---]]
-
 local addonName, addon = ...
 local safecall = addon.safecall
 
---<GLOBALS
 local _G = _G
 local assert = _G.assert
 local CreateFrame = _G.CreateFrame
@@ -34,14 +12,7 @@ local select = _G.select
 local setmetatable = _G.setmetatable
 local SlashCmdList = _G.SlashCmdList
 local tostring = _G.tostring
---GLOBALS>
 
---------------------------------------------------------------------------------
--- Classes
---------------------------------------------------------------------------------
-
--- Required as some "OnLoad" function refers to the frame parent (since 6.0)
-local defaultParent = CreateFrame("Frame")
 
 local classes = {}
 
@@ -51,9 +22,7 @@ end
 
 local function Class_Create(class, ...)
 	class.serial = class.serial + 1
-	local self = CreateFrame(class.frameType, addonName..class.name..class.serial, defaultParent, class.frameTemplate)
-	self.GetItemContextMatchResult = nil -- We're not using the ContainerFrameItemButtonMixin
-	self:SetParent(nil) -- Get rid of the parent once the OnLoad handler has been called
+	local self = CreateFrame(class.frameType, addonName..class.name..class.serial, nil, class.frameTemplate)
 	setmetatable(self, class.metatable)
 	self:ClearAllPoints()
 	self:Hide()
@@ -129,10 +98,6 @@ end
 function addon:GetClass(name)
 	return name and classes[name]
 end
-
---------------------------------------------------------------------------------
--- Object pools
---------------------------------------------------------------------------------
 
 local pools = {}
 
@@ -220,25 +185,3 @@ end
 function addon:GetPool(name)
 	return name and pools[name]
 end
-
---[===[@debug@
--- Globals: SLASH_ADIBAGSOODEBUG1
-SLASH_ADIBAGSOODEBUG1 = "/aboo"
-function SlashCmdList.ADIBAGSOODEBUG()
-	print('Classes:')
-	for name, class in pairs(classes) do
-		print(format("- %s: type: %s, template: %s, serial: %d", name, class.frameType, tostring(class.frameTemplate), class.serial))
-	end
-	print('Pools:')
-	for name, pool in pairs(pools) do
-		local heapSize, numActives = 0, 0
-		for k in pairs(pool.activtes) do
-			numActives = numActives + 1
-		end
-		for k in pairs(pool.heap) do
-			heapSize = heapSize + 1
-		end
-		print(format("- %s: heap size: %d, number of active objects: %d", name, heapSize, numActives))
-	end
-end
---@end-debug@]===]
