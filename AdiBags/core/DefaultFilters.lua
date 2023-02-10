@@ -27,6 +27,7 @@ function addon:SetupDefaultFilters()
 	local JEWELRY = L["Jewelry"]
 	local EQUIPMENT = L['Equipment']
 	local AMMUNITION = L['Ammunition']
+	local DECOR =  BI["Decorate"]	--GetItemSubClassInfo(4,5)
 
 	self:SetCategoryOrders{
 		[QUEST] = 30,
@@ -36,6 +37,7 @@ function addon:SetupDefaultFilters()
 		[MISCELLANEOUS] = -20,
 		[AMMUNITION] = -30,
 		[JUNK] = -40,
+		[DECOR] = -10,
 	}
 
 	do
@@ -170,7 +172,17 @@ function addon:SetupDefaultFilters()
 		questItemFilter.uiName = L['Quest Items']
 		questItemFilter.uiDesc = L['Put quest-related items in their own section.']
 	end
-
+	
+	do
+		local transmogFilter = addon:RegisterFilter('Decorate', 65, function(self, slotData)	
+			if (slotData.class == ARMOR or slotData.class == WEAPON) and slotData.subclass == "Декоративный предмет" then
+					return DECOR
+			else
+				return false
+			end
+		end)
+		transmogFilter.uiName = Decorate
+	end
 	do
 		local equipCategories = {
 			INVTYPE_2HWEAPON = WEAPON,

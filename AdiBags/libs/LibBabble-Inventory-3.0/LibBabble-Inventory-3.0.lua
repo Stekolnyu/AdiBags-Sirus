@@ -1240,6 +1240,7 @@ elseif GAME_LOCALE == "ruRU" then
 	Hunter = "Охотник",
 	Hydraulic = "Hydraulic", -- Needs review
 	Idol = "Идол",
+	Decorate = "Трансмог",
 	Idols = "Идолы",
 	Inscription = "Начертание",
 	["Inscription Bag"] = "Сумка начертателя",
