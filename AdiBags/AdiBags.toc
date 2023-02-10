@@ -1,7 +1,7 @@
 ## Interface: 30300
 ## Title: AdiBags
-## Notes: Modified for WoTLK
-## Author: Adirelle
+## Notes: Modified for WoTLK, edited for Sirus
+## Author: Adirelle, Editor: Stekolnyu
 ## Version: 1.1
 ## SavedVariables: AdiBagsDB
 ## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibBabble-Inventory-3.0, AdiDebug, Scrap, BrainDead, ProfessionsVault
