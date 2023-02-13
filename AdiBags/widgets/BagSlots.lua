@@ -244,7 +244,7 @@ end
 
 function bagButtonProto:OnHide()
 	self:UnregisterAllEvents()
-	self:UnregisterAllMessages()
+	-- self:UnregisterAllMessages()
 end
 
 function bagButtonProto:OnEnter()

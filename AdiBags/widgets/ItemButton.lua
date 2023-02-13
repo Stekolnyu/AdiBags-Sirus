@@ -31,7 +31,7 @@ local GetBagSlotFromId = addon.GetBagSlotFromId
 
 local ITEM_SIZE = addon.ITEM_SIZE
 
-local buttonClass, buttonProto = addon:NewClass("ItemButton", "Button", "ContainerFrameItemButtonTemplate", "AceEvent-3.0")
+local buttonClass, buttonProto = addon:NewClass("ItemButton", "Button", "ContainerFrameItemButtonTemplate")
 
 local childrenNames = { "Cooldown", "IconTexture", "IconQuestTexture", "Count", "Stock", "NormalTexture" }
 
@@ -160,14 +160,14 @@ function buttonProto:OnShow()
 		self:RegisterEvent('INVENTORY_SEARCH_UPDATE', 'UpdateSearch')
 	end
 	self:RegisterEvent('UNIT_QUEST_LOG_CHANGED')
-	self:RegisterMessage('AdiBags_UpdateAllButtons', 'Update')
-	self:RegisterMessage('AdiBags_GlobalLockChanged', 'UpdateLock')
+	-- self:RegisterMessage('AdiBags_UpdateAllButtons', 'Update')
+	-- self:RegisterMessage('AdiBags_GlobalLockChanged', 'UpdateLock')
 	self:FullUpdate()
 end
 
 function buttonProto:OnHide()
 	self:UnregisterAllEvents()
-	self:UnregisterAllMessages()
+	-- self:UnregisterAllMessages()
 	if self.hasStackSplit and self.hasStackSplit == 1 then
 		StackSplitFrame:Hide()
 	end
@@ -407,8 +407,8 @@ function stackProto:IsEmpty()
 end
 
 function stackProto:OnShow()
-	self:RegisterMessage('AdiBags_UpdateAllButtons', 'Update')
-	self:RegisterMessage('AdiBags_PostContentUpdate')
+	-- self:RegisterMessage('AdiBags_UpdateAllButtons', 'Update')
+	-- self:RegisterMessage('AdiBags_PostContentUpdate')
 	self:RegisterEvent('ITEM_LOCK_CHANGED')
 	if self.button then
 		self.button:Show()
@@ -421,7 +421,7 @@ function stackProto:OnHide()
 		self.button:Hide()
 	end
 	self:UnregisterAllEvents()
-	self:UnregisterAllMessages()
+	-- self:UnregisterAllMessages()
 end
 
 function stackProto:SetVisibleSlot(slotId)
