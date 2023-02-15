@@ -160,6 +160,9 @@ function addon:SetupDefaultFilters()
 
 	end
 
+	---------------------------------------------------
+------------------------Задания-----------------------------
+	---------------------------------------------------
 	do
 		local questItemFilter = addon:RegisterFilter('Quest', 75, function(self, slotData)
 			if slotData.class == QUEST or slotData.subclass == QUEST then
@@ -172,17 +175,26 @@ function addon:SetupDefaultFilters()
 		questItemFilter.uiName = L['Quest Items']
 		questItemFilter.uiDesc = L['Put quest-related items in their own section.']
 	end
-	
+
+	---------------------------------------------------
+-----------------Трансмогрификация-------------------------
+	---------------------------------------------------
 	do
-		local transmogFilter = addon:RegisterFilter('Decorate', 65, function(self, slotData)	
-			if (slotData.class == ARMOR or slotData.class == WEAPON) and slotData.subclass == "Декоративный предмет" then
+		local TransmogFilter = addon:RegisterFilter('Decorate', 65, function(self, slotData)
+			if (slotData.class == ARMOR and slotData.subclass == "Декоративный предмет") then
 					return DECOR
+			elseif slotData.class == WEAPON then
+				if slotData.quality == 4 and slotData.iLevel == 1 then
+					return DECOR
+				end
 			else
-				return false
+					return false
 			end
 		end)
-		transmogFilter.uiName = Decorate
+					TransmogFilter.uiName = L["Decorate."]
+					TransmogFilter.uiDesc = L['Put decorated items in their own section.']
 	end
+
 	do
 		local equipCategories = {
 			INVTYPE_2HWEAPON = WEAPON,
@@ -216,6 +228,9 @@ function addon:SetupDefaultFilters()
 			INVTYPE_WRIST = ARMOR,
 		}
 
+	---------------------------------------------------
+-----------------Оснощаемые предметы-------------------------
+	---------------------------------------------------
 		local equipmentFilter = addon:RegisterFilter('Equipment', 60, function(self, slotData)
 			local equipSlot = slotData.equipSlot
 			if equipSlot and equipSlot ~= "" then

@@ -241,7 +241,7 @@ function containerProto:OnHide()
 	PlaySound(self.isBank and "igMainMenuClose" or "igBackPackClose")
 	self:PauseUpdates()
 	self:UnregisterAllEvents()
-	-- self:UnregisterAllMessages()
+	self:UnregisterAllMessages()
 	self:UnregisterAllBuckets()
 end
 

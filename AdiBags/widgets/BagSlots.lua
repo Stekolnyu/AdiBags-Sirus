@@ -60,7 +60,7 @@ do
 	local timeout = 0
 	local currentBag, currentSlot, numSlots
 
-	function swapFrame:Done()
+	function swapFrame:Done()	-- TODO Обновление сумки
 		self:UnregisterAllEvents()
 		self:Hide()
 		currentBag = nil
@@ -74,23 +74,25 @@ do
 		addon:Debug('FindSlotForItem', itemId, GetItemInfo(itemId), 'count=', itemCount, 'maxStack=', maxStack, 'family=', itemFamily, 'bags:', unpack(bags))
 		local bestBag, bestSlot, bestScore
 		for i, bag in pairs(bags) do
-			local scoreBonus = band(bag == KEYRING_CONTAINER and 256 or select(2, GetContainerNumFreeSlots(bag)) or 0, itemFamily) ~= 0 and maxStack or 0
-			for slot = 1, GetContainerNumSlots(bag) do
-				local texture, slotCount, locked = GetContainerItemInfo(bag, slot)
-				if not locked and (not texture or GetContainerItemID(bag, slot) == itemId) then
-					slotCount = slotCount or 0
-					if slotCount + itemCount <= maxStack then
-						local slotScore = slotCount + scoreBonus
-						if not bestScore or slotScore > bestScore then
-							addon:Debug('FindSlotForItem', bag, slot, 'slotCount=', slotCount, 'score=', slotScore, 'NEW BEST SLOT')
-							bestBag, bestSlot, bestScore = bag, slot, slotScore
+			if bag ~= -2 then	--fix for keyring 
+				local scoreBonus = band(bag == KEYRING_CONTAINER and 256 or select(2, GetContainerNumFreeSlots(bag)) or 0, itemFamily) ~= 0 and maxStack or 0
+				for slot = 1, GetContainerNumSlots(bag) do
+					local texture, slotCount, locked = GetContainerItemInfo(bag, slot)
+					if not locked and (not texture or GetContainerItemID(bag, slot) == itemId) then
+						slotCount = slotCount or 0
+						if slotCount + itemCount <= maxStack then
+							local slotScore = slotCount + scoreBonus
+							if not bestScore or slotScore > bestScore then
+								addon:Debug('FindSlotForItem', bag, slot, 'slotCount=', slotCount, 'score=', slotScore, 'NEW BEST SLOT')
+								bestBag, bestSlot, bestScore = bag, slot, slotScore
+							end
 						end
 					end
 				end
 			end
 		end
-		addon:Debug('FindSlotForItem =>', bestBag, bestSlot)
-		return bestBag, bestSlot
+			addon:Debug('FindSlotForItem =>', bestBag, bestSlot)
+			return bestBag, bestSlot
 	end
 
 	function swapFrame:ProcessInner()
@@ -244,7 +246,7 @@ end
 
 function bagButtonProto:OnHide()
 	self:UnregisterAllEvents()
-	-- self:UnregisterAllMessages()
+	self:UnregisterAllMessages()	-- fxpw тут же вроде не надо убирать ?
 end
 
 function bagButtonProto:OnEnter()
