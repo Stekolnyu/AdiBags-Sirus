@@ -2,7 +2,7 @@
 ## Title: AdiBags
 ## Notes: Modified for WoTLK, edited for Sirus
 ## Author: Adirelle, Editor: Stekolnyu, Fxpw(Toxa)
-## Version: 1.2
+## Version: 1.3
 ## SavedVariables: AdiBagsDB
 ## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibBabble-Inventory-3.0, AdiDebug, Scrap, BrainDead, ProfessionsVault
 
@@ -55,6 +55,7 @@ modules\TooltipInfo.lua
 modules\SectionVisibilityDropdown.lua
 modules\ItemLevel.lua
 modules\CurrencyFrame.lua
+modules\TidyBags.lua
 
 # options
 config\Options.lua
