@@ -29,7 +29,21 @@ local wipe = _G.wipe
 
 LibStub('AceAddon-3.0'):NewAddon(addon, addonName, 'AceEvent-3.0', 'AceBucket-3.0', 'AceHook-3.0')
 	function addon.Debug() end
-addon:SetDefaultModulePrototype{Debug = addon.Debug}
+
+--------------------------------------------------------------------------------
+-------------------- Module prototype-------------------------------------------
+--------------------------------------------------------------------------------
+
+addon:SetDefaultModulePrototype{
+	Debug = addon.Debug,
+	OpenOptions = function(self)
+		if self.isFilter then
+			return addon:OpenOptions("filters", self.filterName)
+		elseif not self.isBag then
+			return addon:OpenOptions("modules", self.moduleName)
+		end
+	end,
+}
 
 do
 -- Keyring, backpack, and bags
