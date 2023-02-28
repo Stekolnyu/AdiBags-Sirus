@@ -60,7 +60,7 @@ do
 	local timeout = 0
 	local currentBag, currentSlot, numSlots
 
-	function swapFrame:Done()	-- TODO Обновление сумки
+	function swapFrame:Done()
 		self:UnregisterAllEvents()
 		self:Hide()
 		currentBag = nil
@@ -246,7 +246,7 @@ end
 
 function bagButtonProto:OnHide()
 	self:UnregisterAllEvents()
-	self:UnregisterAllMessages()	-- fxpw тут же вроде не надо убирать ?
+	self:UnregisterAllMessages()
 end
 
 function bagButtonProto:OnEnter()

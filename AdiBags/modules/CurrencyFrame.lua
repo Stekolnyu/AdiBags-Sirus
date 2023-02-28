@@ -29,7 +29,10 @@ mod.uiDesc = L['Display character currency at bottom left of the backpack.']
 function mod:OnInitialize()
 	self.db = addon.db:RegisterNamespace(self.moduleName, {
 		profile = {
-			shown = { ['*'] = true },
+			shown = { ['Очки чести'] = true,
+					  ['Очки доблести'] = true,
+					  ['Очки арены'] = true
+		},
 			hideZeroes = true,
 		},
 	})
